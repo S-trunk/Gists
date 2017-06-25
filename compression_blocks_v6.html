@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>D3: Adding values and elements to a chart</title>
+      <script type="text/javascript" src="https://d3js.org/d3.v4.min.js"></script>
+		<style type="text/css">
+			/* No style rules here yet */
+		</style>
+	</head>
+	<body>
+
+		<script type="text/javascript">
+
+// WIDTH AND HEIGHT
+			var w = 800;
+			var h = 500;
+			var padding = 30;
+			var blockq = 10;
+			var clearance = 1;
+			var sealsize = 400;
+			var sealsizecompressed = 300;
+			var blockw = 50;
+			var blockh = sealsize/blockq;
+			var lowerb = 0.2;
+			var upperb = 0.8;
+
+	    var numHlines = [1,2,3,4,5,6];
+			var numVlines = [1,2,3,4,5,6];
+
+// CREATING AN ARRAY OF RND NUMBERS
+			var dataset = [];
+			for (var i = 0; i < blockq; i++) {
+				   dataset.push(Number((Math.random() * (upperb-lowerb) + lowerb).toFixed(2)));}
+
+			var sum = Number(d3.sum(dataset).toFixed(2));
+
+			var multiplier = sum/blockq;
+
+			for (var cumsum = [dataset[0]], i = 0, l = dataset.length-1; i<l; i++)
+			cumsum[i+1] = cumsum[i] + dataset[i+1];
+
+// TRYING TO LOAD DATA FOR THE STRESSSTRAIN CURVES
+
+var dati = [];
+d3.csv("stressstrain.txt", function(d) {
+dati = d;
+console.log(dati);
+});
+console.log(dati);
+
+
+// THIS STEP IS NEEDED TO FIX FLOATING POINTS NUMBERS
+			var f = d3.format(".3n");
+			var datasetcumulative = [];
+			for (var i = 0; i < blockq; i++) {
+				datasetcumulative.push(Number(f(cumsum[i])));}
+
+// SCALES
+			var Cscale = d3.scaleLinear()
+									.domain([0, d3.max(dataset)])
+									.range([0,1]);
+			var Yscale = d3.scaleLinear()
+									.domain([0,sum])
+									.range([0,sealsizecompressed])
+
+// CREATE THE MAIN SVG BODY
+			var svg = d3.select("body")
+						.append("svg")
+						.attr("width", w)
+						.attr("height", h);
+
+// BUTTONS
+			d3.select("body").append("button")
+							.attr("id","button1")
+							.text(1)
+
+			d3.select("body").append("button")
+							.attr("id","button2")
+							.text("_")
+
+// GRID time
+     svg.selectAll("Hlines")
+		 	.data(numHlines)
+			.enter()
+			.append("line")
+			.attr("x1", 0)
+			.attr("x2", w)
+			.attr("y1", function(d,i){
+				return i * h/(numHlines.length-1)
+			})
+			.attr("y2", function(d,i){
+				return i * h/(numHlines.length-1)
+			})
+		  .attr("stroke","grey");
+
+		 svg.selectAll("Vlines")
+ 		 	.data(numVlines)
+ 			.enter()
+ 			.append("line")
+ 			.attr("x1", function(d,i){
+ 				return i * w/(numVlines.length-1)
+ 			})
+			.attr("x2", function(d,i){
+				return i * w/(numVlines.length-1)
+			})
+ 			.attr("y1", 0)
+			.attr("y2", h)
+ 		  .attr("stroke","grey");
+
+// CREATING BLOCKS
+		 svg.selectAll("rect")
+			   .data(dataset)
+			   .enter()
+			   .append("rect")
+			   .attr("x", w/2 - blockw/2)
+				 .attr("y", function(d, i) {
+			   		return h - i*blockh-blockh;
+			   })
+			   .attr("width", blockw)
+			   .attr("height", blockh)
+				 .attr("fill", function(d){
+					 return d3.rgb(d3.interpolateInferno(1));
+				 })
+				 .attr("stroke","black");
+
+// CREATING circles
+// check chapter 11 v4, how to bind an array of arrays
+
+svg.append("g")
+	 .attr("id", "circles")
+	 .selectAll("circle")
+	 .data(dati)
+	 .enter()
+	 .append("circle")
+	 .attr("cx", function(d) {
+			return d.x;
+	 })
+	.attr("cy", function(d) {
+			return d.y;
+	 })
+	 .attr("r", 10)
+	 .attr("fill", "red")
+	 .attr("stroke","black");
+
+// ADDING TEXT NEXT TO THE BLOCKS
+
+     svg.selectAll("text")
+			     .data(dataset)
+					 .enter()
+					 .append("text")
+					 .text(1)
+					 .attr("text-anchor", "middle")
+					 .attr("x", w/2+blockw)
+					 .attr("y", function(d, i) {
+				   		return h - i*blockh-blockh/2;
+				   })
+				   .attr("font-family", "sans-serif")
+					 .attr("font-size", "11px")
+					 .attr("fill", "black");
+
+
+// UPDATING THE DATA
+			d3.select("#button1")
+				.on("click", function() {
+
+				svg.selectAll("rect")
+						 .transition()
+						 .duration(3500)
+						 .attr("x", w/2 - blockw/2)
+						 .attr("y", function(d, i) {
+							 return h - Yscale(datasetcumulative[i]);
+						 })
+						 .attr("width", blockw)
+						 .attr("height", function(d){
+							 return Yscale(d);
+						 })
+						 .attr("fill", function(d){
+							 return d3.rgb(d3.interpolateInferno(Cscale(d)));
+						 })
+						 .attr("stroke","black");
+
+				  svg.selectAll("text")
+					.transition()
+					.duration(3500)
+					.text(function(d){
+						return d;
+					})
+					.attr("text-anchor", "middle")
+					.attr("x", w/2+blockw)
+					.attr("y", function(d, i) {
+						 return h - Yscale(datasetcumulative[i])+Yscale(d)/2+4;
+					})
+					.attr("font-family", "sans-serif")
+					.attr("font-size", "11px")
+					.attr("fill", "black");
+
+
+				});
+
+
+
+
+		</script>
+	</body>
+</html>
